@@ -72,6 +72,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if config is None:
             config = get_config()
         self._config = config
+        self.select_flag_hotkeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
 
         # set default shape colors
         Shape.line_color = QtGui.QColor(*self._config["shape"]["line_color"])
@@ -482,6 +483,16 @@ class MainWindow(QtWidgets.QMainWindow):
             tip=self.tr("Show tutorial page"),
         )
 
+        # Keyboard shortcuts to select / deselect flags
+        select_flag_actions = []
+        for flag_idx in range(len(self.select_flag_hotkeys)):
+            cur_action = action(
+                self.tr(f"Select Flag {flag_idx}"),
+                functools.partial(self.selectFlag, flag_idx),
+                f"{self.select_flag_hotkeys[flag_idx]}",
+            )
+            select_flag_actions.append(cur_action)
+
         zoom = QtWidgets.QWidgetAction(self)
         zoomBoxLayout = QtWidgets.QVBoxLayout()
         zoomLabel = QtWidgets.QLabel(self.tr("Zoom"))
@@ -605,7 +616,6 @@ class MainWindow(QtWidgets.QMainWindow):
         utils.addActions(labelMenu, (edit, delete))
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(self.popLabelListMenu)
-
         # Store actions for further handling.
         self.actions = types.SimpleNamespace(
             saveAuto=saveAuto,
@@ -752,7 +762,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 fitWidth,
                 None,
                 brightnessContrast,
-            ),
+            ) + (None, *select_flag_actions),
         )
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
@@ -899,6 +909,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.firstStart = True
         # if self.firstStart:
         #    QWhatsThis.enterWhatsThisMode()
+
+    def selectFlag(self, flag_idx):
+        item = self.flag_widget.item(flag_idx)
+        if item:
+            if item.checkState() == Qt.Checked:
+                item.setCheckState(Qt.Unchecked)
+            else:
+                item.setCheckState(Qt.Checked)
 
     def menu(self, title, actions=None):
         menu = self.menuBar().addMenu(title)
@@ -1396,10 +1414,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadFlags(self, flags):
         self.flag_widget.clear()  # type: ignore[union-attr]
-        for key, flag in flags.items():
+        for idx, (key, flag) in enumerate(flags.items()):
             item = QtWidgets.QListWidgetItem(key)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Checked if flag else Qt.Unchecked)
+            # generate a text-icon with corresponding hotkey
+            current_hotkey = self.select_flag_hotkeys[idx]
+            icon_pixmap = QtGui.QPixmap(64, 64)
+            icon_pixmap.fill(QtGui.QColor(0, 0, 0))
+            painter = QtGui.QPainter(icon_pixmap)
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255), 2))
+            painter.drawText(icon_pixmap.rect(), Qt.AlignCenter, current_hotkey)
+            painter.end()
+            item.setIcon(QtGui.QIcon(icon_pixmap))
             self.flag_widget.addItem(item)  # type: ignore[union-attr]
 
     def saveLabels(self, filename):
